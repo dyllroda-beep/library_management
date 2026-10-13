@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Borrow / Return</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="side-logo">
+            <span class="logo-icon">📚</span>
+            <span>Smart Library</span>
+        </div>
+        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+            <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+        </a>
+        <a href="{{ url_for('books') }}" class="{% if request.endpoint == 'books' %}active{% endif %}">
+            <span class="nav-icon">📖</span><span class="nav-label">Books</span>
+        </a>
+        <a href="{{ url_for('borrow') }}" class="{% if request.endpoint == 'borrow' %}active{% endif %}">
+            <span class="nav-icon">🔄</span><span class="nav-label">Borrow</span>
+        </a>
+        <a href="{{ url_for('borrowers') }}" class="{% if request.endpoint == 'borrowers' %}active{% endif %}">
+            <span class="nav-icon">📋</span><span class="nav-label">Borrowers</span>
+        </a>
+        <a href="{{ url_for('calendar_view') }}" class="{% if request.endpoint == 'calendar_view' %}active{% endif %}">
+            <span class="nav-icon">📅</span><span class="nav-label">Calendar</span>
+        </a>
+        <a href="{{ url_for('members') }}" class="{% if request.endpoint == 'members' %}active{% endif %}">
+            <span class="nav-icon">👥</span><span class="nav-label">Members</span>
+        </a>
+        <div class="side-bottom">
+            <a href="{{ url_for('logout') }}">
+                <span class="nav-icon">🚪</span><span class="nav-label">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <main class="main">
+        <div class="topbar">
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" placeholder="Search borrow records...">
+            </div>
+            <div class="user-menu">
+                <div class="avatar">{{ librarian[0]|upper }}</div>
+                <span class="user-name">{{ librarian|capitalize }}</span>
+                <div class="bell">🔔</div>
+                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            </div>
+        </div>
+
+        <h1 class="page-title">Borrow / Return</h1>
+        <p class="page-subtitle">Issue books to members and process returns.</p>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}<div class="flash">{{ messages[0] }}</div>{% endif %}
+        {% endwith %}
+
+        <div class="form-card">
+            <h3>Issue a Book</h3>
+            <form method="POST" class="row">
+                <input type="hidden" name="action" value="borrow">
+                <select name="isbn" required>
+                    {% for isbn, b in books.items() %}
+                    <option value="{{ isbn }}" {% if b.copies == 0 %}disabled{% endif %}>
+                        {{ b.title }} — {{ b.copies }} left
+                    </option>
+                    {% endfor %}
+                </select>
+                <select name="member_id" required>
+                    {% for mid, m in members.items() %}
+                    <option value="{{ mid }}">{{ m.name }} ({{ mid }})</option>
+                    {% endfor %}
+                </select>
+                <select name="days" required style="max-width: 160px;">
+                    <option value="7">7 days</option>
+                    <option value="14" selected>14 days</option>
+                    <option value="21">21 days</option>
+                    <option value="30">30 days</option>
+                </select>
+                <button type="submit" class="primary">Borrow</button>
+            </form>
+        </div>
+
+        <h2 class="section-title">Borrow Records</h2>
+
+        {% if borrows %}
+        <div class="table-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Book</th>
+                        <th>Member</th>
+                        <th>Borrowed</th>
+                        <th>Due</th>
+                        <th>Returned</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in borrows %}
+                    <tr>
+                        <td><strong>{{ books[b.isbn].title if b.isbn in books else '—' }}</strong></td>
+                        <td>{{ members[b.member_id].name if b.member_id in members else '—' }}</td>
+                        <td>{{ b.borrow_date }}</td>
+                        <td>{{ b.due_date or '—' }}</td>
+                        <td>{{ b.return_date or '—' }}</td>
+                        <td>
+                            {% if b.returned %}
+                                <span class="badge present">Returned</span>
+                            {% elif b.due_date and b.due_date < today %}
+                                <span class="badge absent">Overdue</span>
+                            {% elif b.due_date == today %}
+                                <span class="badge late">Due Today</span>
+                            {% else %}
+                                <span class="badge excused">Borrowed</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not b.returned %}
+                            <form method="POST" style="display:inline;">
+                                <input type="hidden" name="action" value="return">
+                                <input type="hidden" name="index" value="{{ loop.index0 }}">
+                                <button type="submit" class="primary" style="padding:6px 14px; font-size:11.5px;">Return</button>
+                            </form>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty">
+            <div class="empty-icon">📭</div>
+            <h3>No borrow records yet</h3>
+            <p>Issue a book above to get started.</p>
+        </div>
+        {% endif %}
+    </main>
+</div>
+</body>
+</html>

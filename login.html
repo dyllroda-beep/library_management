@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login | Library</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="center">
+    <div class="login-card">
+        <div class="logo">📚</div>
+        <h1>Welcome Back</h1>
+        <p class="subtitle">Library Management</p>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}<div class="flash">{{ messages[0] }}</div>{% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <button type="submit">Sign In →</button>
+        </form>
+        <p class="hint">Default: admin / 1234</p>
+    </div>
+</body>
+</html>
