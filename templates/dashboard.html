@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Dashboard · Smart Library</title>
+    {% include 'partials/head.html' %}
+</head>
+<body>
+<div class="app-shell">
+    {% include 'partials/sidebar.html' %}
+
+    <main class="main">
+        {% include 'partials/topbar.html' %}
+        {% include 'partials/flash.html' %}
+
+        <div class="dash-grid">
+            <div class="dash-left">
+
+                <div class="stats reveal">
+                    <div class="stat-card">
+                        <div class="stat-icon">📖</div>
+                        <div>
+                            <div class="stat-value">{{ total_books }}</div>
+                            <div class="stat-label">Book Titles</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📦</div>
+                        <div>
+                            <div class="stat-value">{{ total_copies }}</div>
+                            <div class="stat-label">Total Copies</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div>
+                            <div class="stat-value">{{ total_members }}</div>
+                            <div class="stat-label">Members</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🔄</div>
+                        <div>
+                            <div class="stat-value">{{ active_borrows }}</div>
+                            <div class="stat-label">Active Borrows</div>
+                        </div>
+                    </div>
+                </div>
+
+                <section class="hero reveal">
+                    <div class="hero-text">
+                        <div class="eyebrow">Welcome back</div>
+                        <h1>Happy reading,<br>{{ librarian|capitalize }}</h1>
+                        <p>Your library is thriving. Browse featured books, manage members, and keep track of every borrow — all in one place.</p>
+                        <a href="{{ url_for('books') }}" class="hero-cta">Start managing →</a>
+                    </div>
+                    <div class="hero-image">
+                        <div class="book-poster">
+                            {% if featured %}
+                            <img src="{{ featured[0][1].poster }}" alt="{{ featured[0][1].title }}" onerror="this.style.display='none';">
+                            {% endif %}
+                        </div>
+                    </div>
+                </section>
+
+                <div class="category-bar reveal">
+                    <a href="{{ url_for('dashboard') }}" class="cat-chip {% if current_category == 'All' %}active{% endif %}">✦ All</a>
+                    {% for cat in categories %}
+                    <a href="{{ url_for('dashboard', category=cat) }}" class="cat-chip {% if current_category == cat %}active{% endif %}">{{ cat }}</a>
+                    {% endfor %}
+                </div>
+
+                <h2 class="section-title reveal">Popular Now</h2>
+                {% if featured %}
+                <div class="book-grid">
+                    {% for isbn, b in featured %}
+                    <div class="book-card reveal" data-searchable="{{ b.title }} {{ b.author }} {{ b.category }}">
+                        <div class="book-poster">
+                            {% if b.poster %}
+                                <img src="{{ b.poster }}" alt="{{ b.title }}" onerror="this.style.display='none'; this.parentElement.classList.add('no-image');">
+                            {% endif %}
+                            <span class="book-category">{{ b.category }}</span>
+                        </div>
+                        <div class="book-info">
+                            <h3>{{ b.title }}</h3>
+                            <p class="book-author">by {{ b.author }}</p>
+                            <div class="book-footer">
+                                <span class="book-copies">{{ b.copies }} copies</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty">
+                    <div class="empty-icon">📚</div>
+                    <h3>No books in this category</h3>
+                    <p>Try another category or add books.</p>
+                </div>
+                {% endif %}
+
+                {% if recent_borrows %}
+                <h2 class="section-title reveal" style="margin-top: 24px;">Recent Activity</h2>
+                <div class="table-card reveal">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Book</th>
+                                <th>Member</th>
+                                <th>Borrowed</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in recent_borrows %}
+                            <tr>
+                                <td><strong>{{ books[b.isbn].title if b.isbn in books else '—' }}</strong></td>
+                                <td>{{ members[b.member_id].name if b.member_id in members else '—' }}</td>
+                                <td>{{ b.borrow_date }}</td>
+                                <td>
+                                    {% if b.returned %}
+                                        <span class="badge present">Returned</span>
+                                    {% elif b.due_date and b.due_date < today %}
+                                        <span class="badge absent">Overdue</span>
+                                    {% elif b.due_date == today %}
+                                        <span class="badge late">Due Today</span>
+                                    {% else %}
+                                        <span class="badge excused">Borrowed</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="dash-right">
+                <div class="dash-card reveal">
+                    <div class="dash-card-header">
+                        <div>
+                            <h2 class="dash-card-title">{{ month_name }} {{ year }}</h2>
+                            <p class="dash-card-sub">Return dates at a glance</p>
+                        </div>
+                        <div class="cal-nav">
+                            <a href="{{ url_for('dashboard', year=prev_year, month=prev_month) }}" class="cal-btn">←</a>
+                            <a href="{{ url_for('dashboard') }}" class="cal-btn">Today</a>
+                            <a href="{{ url_for('dashboard', year=next_year, month=next_month) }}" class="cal-btn">→</a>
+                        </div>
+                    </div>
+
+                    <div class="legend">
+                        <span class="legend-item"><span class="dot dot-borrowed"></span> Borrowed</span>
+                        <span class="legend-item"><span class="dot dot-due"></span> Due</span>
+                        <span class="legend-item"><span class="dot dot-returned"></span> Returned</span>
+                    </div>
+
+                    <div class="cal-grid">
+                        {% for day_name in ['S','M','T','W','T','F','S'] %}
+                        <div class="cal-head">{{ day_name }}</div>
+                        {% endfor %}
+
+                        {% for week in weeks %}
+                            {% for day in week %}
+                                {% if day == 0 %}
+                                    <div class="cal-cell cal-empty"></div>
+                                {% else %}
+                                    {% set date_str = '%04d-%02d-%02d'|format(year, month, day) %}
+                                    <div class="cal-cell {% if date_str == today %}cal-today{% endif %}">
+                                        <div class="cal-day">{{ day }}</div>
+                                        <div class="cal-events">
+                                            {% for e in events.get(date_str, [])[:2] %}
+                                                <div class="cal-event cal-{{ e.type }}" title="{{ e.title }} — {{ e.member }}">
+                                                    {% if e.type == 'borrowed' %}📖
+                                                    {% elif e.type == 'due' %}⏰
+                                                    {% elif e.type == 'returned' %}✅
+                                                    {% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="dash-card reveal">
+                    <h2 class="dash-card-title">⏰ Upcoming Due</h2>
+                    <p class="dash-card-sub">Books to be returned soon</p>
+                    {% if upcoming %}
+                        <div class="upcoming-list">
+                            {% for u in upcoming %}
+                            <div class="upcoming-item">
+                                <div class="upcoming-icon">📕</div>
+                                <div class="upcoming-info">
+                                    <div class="upcoming-title">{{ u.title }}</div>
+                                    <div class="upcoming-meta">{{ u.member }} · Due {{ u.due }}</div>
+                                </div>
+                                {% if u.due < today %}
+                                    <span class="badge absent">Overdue</span>
+                                {% elif u.due == today %}
+                                    <span class="badge late">Today</span>
+                                {% else %}
+                                    <span class="badge excused">{{ u.days }}d</span>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-mini">
+                            <div>🎉</div>
+                            <p>No upcoming due dates</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+{% include 'partials/scripts.html' %}
+</body>
+</html>

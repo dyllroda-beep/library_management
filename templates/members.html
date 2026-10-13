@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Members · Smart Library</title>
+    {% include 'partials/head.html' %}
+</head>
+<body>
+<div class="app-shell">
+    {% include 'partials/sidebar.html' %}
+
+    <main class="main">
+        {% include 'partials/topbar.html' %}
+        {% include 'partials/flash.html' %}
+
+        <div class="hero-head reveal">
+            <div>
+                <div class="eyebrow">Catalog</div>
+                <h1 class="page-title">Manage Members</h1>
+                <p class="page-subtitle">Click any member to view their full details.</p>
+            </div>
+            <button type="button" class="btn-add" onclick="openModal()">
+                <span class="btn-add-icon">＋</span>
+                <span>Add New Member</span>
+            </button>
+        </div>
+
+        {% if members %}
+        <div class="member-list">
+            {% for mid, m in members.items() %}
+            <a href="{{ url_for('member_detail', member_id=mid) }}" class="member-row reveal" data-searchable="{{ m.name }} {{ m.email }} {{ mid }}">
+                <div class="member-row-avatar">{{ m.name[0]|upper }}</div>
+                <div class="member-row-info">
+                    <h3>{{ m.name }}
+                        {% if m.status == 'active' and m.id_verified %}
+                            <span class="badge present">Active</span>
+                        {% elif m.status != 'active' %}
+                            <span class="badge absent">{{ m.status|capitalize }}</span>
+                        {% else %}
+                            <span class="badge late">ID Unverified</span>
+                        {% endif %}
+                        {% if m.fines and m.fines > 0 %}
+                            <span class="badge absent">P{{ '%.2f'|format(m.fines) }}</span>
+                        {% endif %}
+                    </h3>
+                    <p class="member-row-meta">
+                        <span class="member-row-chip">{{ mid }}</span>
+                        <span class="member-row-email">📧 {{ m.email }}</span>
+                    </p>
+                </div>
+                <div class="member-row-stats">
+                    {% set active = namespace(count=0) %}
+                    {% for b in borrows %}
+                        {% if b.member_id == mid and not b.returned %}
+                            {% set active.count = active.count + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                    <span class="member-row-count">
+                        <strong>{{ active.count }}</strong>
+                        <small>active</small>
+                    </span>
+                </div>
+                <span class="member-row-arrow">→</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty reveal">
+            <div class="empty-icon">👥</div>
+            <h3>No members yet</h3>
+            <p>Click <strong>"Add New Member"</strong> to create your first entry.</p>
+        </div>
+        {% endif %}
+    </main>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title">Add New Member</h2>
+                <p class="modal-sub">Fill in the details below</p>
+            </div>
+            <button type="button" class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <form method="POST" class="modal-form" id="addMemberForm">
+            <input type="hidden" name="action" value="add">
+            <div class="modal-row">
+                <label>Member ID</label>
+                <input type="text" name="member_id" placeholder="e.g. M003" required>
+            </div>
+            <div class="modal-row">
+                <label>Full Name</label>
+                <input type="text" name="name" placeholder="e.g. Jane Dela Cruz" required>
+            </div>
+            <div class="modal-row">
+                <label>Email</label>
+                <input type="email" name="email" placeholder="e.g. jane@mail.com" required>
+            </div>
+            <div class="modal-grid">
+                <div class="modal-row">
+                    <label>Account Status</label>
+                    <select name="status">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="suspended">Suspended</option>
+                    </select>
+                </div>
+                <div class="modal-row">
+                    <label>ID Verified</label>
+                    <select name="id_verified">
+                        <option value="on">Yes</option>
+                        <option value="">No</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="modal-cancel" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="modal-save">Add Member</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal() {
+        const overlay = document.getElementById('modalOverlay');
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => {
+            const firstInput = overlay.querySelector('input[name="member_id"]');
+            if (firstInput) firstInput.focus();
+        }, 150);
+    }
+    function closeModal() {
+        const overlay = document.getElementById('modalOverlay');
+        overlay.classList.remove('open');
+        document.body.style.overflow = '';
+        setTimeout(() => {
+            const form = document.getElementById('addMemberForm');
+            if (form) form.reset();
+        }, 250);
+    }
+    function closeModalOutside(e) { if (e.target.id === 'modalOverlay') closeModal(); }
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+</script>
+{% include 'partials/scripts.html' %}
+</body>
+</html>

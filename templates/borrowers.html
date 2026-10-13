@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Borrowers · Smart Library</title>
+    {% include 'partials/head.html' %}
+</head>
+<body>
+<div class="app-shell">
+    {% include 'partials/sidebar.html' %}
+
+    <main class="main">
+        {% include 'partials/topbar.html' %}
+        {% include 'partials/flash.html' %}
+
+        <div class="hero-head reveal">
+            <div>
+                <div class="eyebrow">Circulation</div>
+                <h1 class="page-title">Borrowers</h1>
+                <p class="page-subtitle">Active borrows per member with due dates.</p>
+            </div>
+        </div>
+
+        {% if grouped %}
+            {% for mid, items in grouped.items() %}
+            <div class="record-card reveal" data-searchable="{{ members[mid].name if mid in members else '' }} {{ mid }}">
+                <h3>🧑 {{ members[mid].name if mid in members else '—' }}
+                    <span style="color: var(--ink-mute); font-size: 11px; font-weight: 500;">({{ mid }})</span>
+                </h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Book</th>
+                            <th>Borrowed</th>
+                            <th>Due</th>
+                            <th>Returned</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in items %}
+                        <tr>
+                            <td><strong>{{ books[b.isbn].title if b.isbn in books else '—' }}</strong></td>
+                            <td>{{ b.borrow_date }}</td>
+                            <td>{{ b.due_date or '—' }}</td>
+                            <td>{{ b.return_date or '—' }}</td>
+                            <td>
+                                {% if b.returned %}
+                                    <span class="badge present">Returned</span>
+                                {% elif b.due_date and b.due_date < today %}
+                                    <span class="badge absent">Overdue</span>
+                                {% elif b.due_date == today %}
+                                    <span class="badge late">Due Today</span>
+                                {% else %}
+                                    <span class="badge excused">Borrowed</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not b.returned %}
+                                <form method="POST" action="{{ url_for('borrow') }}" style="display:inline;"
+                                      onsubmit="return confirm('Confirm return?');">
+                                    <input type="hidden" name="action" value="return">
+                                    <input type="hidden" name="index" value="{{ b.index }}">
+                                    <button type="submit" class="primary" style="padding:6px 14px; font-size:11.5px;">Return</button>
+                                </form>
+                                {% else %}—{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+        {% else %}
+        <div class="empty reveal">
+            <div class="empty-icon">📋</div>
+            <h3>No borrowers yet</h3>
+            <p>Issue a book from the Borrow page to see borrowers here.</p>
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% include 'partials/scripts.html' %}
+</body>
+</html>

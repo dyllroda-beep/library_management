@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Borrow / Return · Lib-Management</title>
+    {% include 'partials/head.html' %}
+</head>
+<body>
+<div class="app-shell">
+    {% include 'partials/sidebar.html' %}
+
+    <main class="main">
+        {% include 'partials/topbar.html' %}
+        {% include 'partials/flash.html' %}
+
+        <div class="hero-head reveal">
+            <div>
+                <div class="eyebrow">Circulation</div>
+                <h1 class="page-title">Borrow / Return</h1>
+                <p class="page-subtitle">
+                    Max <strong>{{ max_books }} books</strong> per member ·
+                    <strong>{{ default_days }}-day</strong> loan period ·
+                    P{{ '%.2f'|format(fine_per_day) }}/day overdue fine.
+                </p>
+            </div>
+            <button type="button" class="btn-add" onclick="openModal()">
+                <span class="btn-add-icon">＋</span>
+                <span>Issue a Book</span>
+            </button>
+        </div>
+
+        <h2 class="section-title reveal">Member Eligibility</h2>
+        <div class="member-list reveal">
+            {% for mid, m in members.items() %}
+            {% set st = member_states[mid] %}
+            <div class="member-row eligibility-row" style="cursor: default;">
+                <div class="member-row-avatar">{{ m.name[0]|upper }}</div>
+                <div class="member-row-info">
+                    <h3>{{ m.name }}
+                        {% if m.status == 'active' and m.id_verified %}
+                            <span class="badge present">Eligible</span>
+                        {% elif m.status != 'active' %}
+                            <span class="badge absent">{{ m.status|capitalize }}</span>
+                        {% elif not m.id_verified %}
+                            <span class="badge late">ID Unverified</span>
+                        {% endif %}
+                    </h3>
+                    <p class="member-row-meta">
+                        <span class="member-row-chip">{{ mid }}</span>
+                        <span class="member-row-email">
+                            📚 {{ st.active_borrows }}/{{ max_books }} borrowed
+                            {% if st.overdue_count > 0 %} · ⚠️ {{ st.overdue_count }} overdue{% endif %}
+                            {% if st.fines > 0 %} · 💸 P{{ '%.2f'|format(st.fines) }}{% endif %}
+                        </span>
+                    </p>
+                </div>
+                <div class="member-row-stats">
+                    {% if st.fines > 0 %}
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="pay_fines">
+                        <input type="hidden" name="member_id" value="{{ mid }}">
+                        <button type="submit" class="primary" style="padding:6px 12px; font-size:11px;">
+                            Settle P{{ '%.2f'|format(st.fines) }}
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <h2 class="section-title reveal">Borrow Records</h2>
+
+        {% if borrows %}
+        <div class="table-card reveal">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Book</th>
+                        <th>Member</th>
+                        <th>Borrowed</th>
+                        <th>Due</th>
+                        <th>Returned</th>
+                        <th>Fine</th>
+                        <th>Condition</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in borrows %}
+                    <tr>
+                        <td><strong>{{ books[b.isbn].title if b.isbn in books else '—' }}</strong></td>
+                        <td>{{ members[b.member_id].name if b.member_id in members else '—' }}</td>
+                        <td>{{ b.borrow_date }}</td>
+                        <td>{{ b.due_date or '—' }}</td>
+                        <td>{{ b.return_date or '—' }}</td>
+                        <td>
+                            {% if b.fine and b.fine > 0 %}
+                                <span class="badge absent">P{{ '%.2f'|format(b.fine) }}</span>
+                            {% else %}
+                                <span class="badge present">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if b.condition == 'lost' %}
+                                <span class="badge absent">Lost</span>
+                            {% elif b.condition == 'damaged' %}
+                                <span class="badge late">Damaged</span>
+                            {% else %}
+                                <span class="badge present">Good</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if b.returned %}
+                                <span class="badge present">Returned</span>
+                            {% elif b.due_date and b.due_date < today %}
+                                <span class="badge absent">Overdue</span>
+                            {% elif b.due_date == today %}
+                                <span class="badge late">Due Today</span>
+                            {% else %}
+                                <span class="badge excused">Borrowed</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not b.returned %}
+                            <form method="POST" style="display:inline;"
+                                  onsubmit="return confirm('Confirm return of this book?');">
+                                <input type="hidden" name="action" value="return">
+                                <input type="hidden" name="index" value="{{ b.index }}">
+                                <button type="submit" class="primary" style="padding:6px 14px; font-size:11.5px;">Return</button>
+                            </form>
+                            {% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty reveal">
+            <div class="empty-icon">📭</div>
+            <h3>No borrow records yet</h3>
+            <p>Click <strong>"Issue a Book"</strong> to get started.</p>
+        </div>
+        {% endif %}
+    </main>
+</div>
+
+<!-- ISSUE MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title">Issue a Book</h2>
+                <p class="modal-sub">All rules are checked before the book is issued</p>
+            </div>
+            <button type="button" class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+
+        <form method="POST" class="modal-form" id="issueForm">
+            <input type="hidden" name="action" value="borrow">
+
+            <!-- MEMBER -->
+            <div class="modal-row">
+                <label>Member</label>
+                <select name="member_id" id="memberSelect" required>
+                    {% for mid, m in members.items() %}
+                    <option value="{{ mid }}"
+                            data-status="{{ m.status }}"
+                            data-verified="{{ '1' if m.id_verified else '0' }}"
+                            data-active="{{ member_states[mid].active_borrows }}"
+                            data-overdue="{{ member_states[mid].overdue_count }}"
+                            data-fines="{{ member_states[mid].fines }}">
+                        {{ m.name }} ({{ mid }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- BOOK -->
+            <div class="modal-row">
+                <label>Book</label>
+                <select name="isbn" id="bookSelect" required>
+                    {% for isbn, b in books.items() %}
+                    <option value="{{ isbn }}"
+                            data-copies="{{ b.copies }}"
+                            {% if b.copies == 0 %}disabled{% endif %}>
+                        {{ b.title }} — {{ b.copies }} available
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- QUANTITY + LOAN PERIOD -->
+            <div class="modal-grid">
+                <div class="modal-row">
+                    <label>Quantity</label>
+                    <div class="qty-control">
+                        <button type="button" class="qty-btn" onclick="changeQty(-1)">−</button>
+                        <input type="number" name="quantity" id="qtyInput"
+                               value="1" min="1" max="1" required>
+                        <button type="button" class="qty-btn" onclick="changeQty(1)">+</button>
+                    </div>
+                    <small class="qty-hint" id="qtyHint">Max: 1</small>
+                </div>
+                <div class="modal-row">
+                    <label>Loan Period</label>
+                    <select name="days" id="daysSelect" required>
+                        <option value="7"  {% if default_days == 7  %}selected{% endif %}>7 days</option>
+                        <option value="14" {% if default_days == 14 %}selected{% endif %}>14 days</option>
+                        <option value="21">21 days</option>
+                        <option value="30">30 days</option>
+                        <option value="custom">Custom date…</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- CUSTOM DATE PICKER -->
+            <div class="modal-row" id="customDateRow" style="display:none;">
+                <label>
+                    Custom Return Date
+                    <span class="custom-date-hint">Pick any date on or after today</span>
+                </label>
+                <input type="date" name="custom_due_date" id="customDueInput" min="{{ today }}">
+            </div>
+
+            <!-- POLICY INFO CARD -->
+            <div class="policy-info">
+                <div class="policy-row">
+                    <div class="policy-icon">📅</div>
+                    <div>
+                        <div class="policy-title">Due Date</div>
+                        <div class="policy-text">
+                            Borrowed <strong>{{ today }}</strong>
+                            → due <strong id="previewDue" class="preview-due">—</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="policy-row">
+                    <div class="policy-icon">💸</div>
+                    <div>
+                        <div class="policy-title">Late Return Penalty</div>
+                        <div class="policy-text">
+                            P{{ '%.2f'|format(fine_per_day) }} per day, per copy, past the due date.
+                        </div>
+                    </div>
+                </div>
+                <div class="policy-row">
+                    <div class="policy-icon">📕</div>
+                    <div>
+                        <div class="policy-title">Lost or Damaged Book</div>
+                        <div class="policy-text">
+                            Lost: P{{ '%.2f'|format(lost_fee) }} ·
+                            Damaged: P{{ '%.2f'|format(damaged_fee) }}
+                        </div>
+                    </div>
+                </div>
+                <div class="policy-row">
+                    <div class="policy-icon">🚫</div>
+                    <div>
+                        <div class="policy-title">Unpaid Fines Check</div>
+                        <div class="policy-text">
+                            Borrowing is blocked until all fines are settled.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ELIGIBILITY -->
+            <div class="rule-check" id="ruleCheck">
+                <div class="rule-check-title">Eligibility</div>
+                <ul class="rule-list" id="ruleList"></ul>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="modal-cancel" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="modal-save" id="issueBtn" disabled>Issue Book</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.rule-check {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-top: 4px;
+}
+.rule-check-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+}
+.rule-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.rule-list li {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ink-soft);
+}
+.rule-list li .rule-icon {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+.rule-ok  .rule-icon { background: #DEF7E5; color: #15803D; }
+.rule-ok  { color: var(--ink); }
+.rule-bad .rule-icon { background: #FEE2E2; color: #B91C1C; }
+.rule-bad { color: #B91C1C; font-weight: 600; }
+.rule-warn .rule-icon { background: #FEF3C7; color: #B45309; }
+.rule-warn { color: #B45309; }
+
+.qty-control {
+    display: flex;
+    align-items: stretch;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg);
+    transition: 0.25s;
+}
+.qty-control:focus-within {
+    border-color: var(--coral);
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(232, 115, 90, 0.1);
+}
+.qty-btn {
+    width: 40px;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: 0.2s;
+}
+.qty-btn:hover { background: var(--coral-soft); color: var(--coral); }
+.qty-btn:disabled { opacity: 0.35; cursor: not-allowed; background: transparent; }
+.qty-control input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    color: var(--ink);
+    padding: 10px 0;
+    -moz-appearance: textfield;
+    min-width: 0;
+}
+.qty-control input::-webkit-outer-spin-button,
+.qty-control input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.qty-control input:focus { outline: none; }
+.qty-hint { font-size: 10.5px; color: var(--ink-soft); margin-top: 4px; }
+
+.custom-date-hint {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink-mute);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: 6px;
+}
+
+.policy-info {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.policy-row { display: flex; gap: 12px; align-items: flex-start; }
+.policy-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--coral-soft);
+    color: var(--coral);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+.policy-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 2px;
+}
+.policy-text {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    line-height: 1.4;
+}
+.policy-text strong { color: var(--ink); font-weight: 700; }
+.policy-text .preview-due {
+    color: var(--coral);
+    font-family: monospace;
+}
+</style>
+
+<script>
+    const MAX_BOOKS = {{ max_books }};
+    const TODAY = "{{ today }}";
+
+    // ---------- MODAL ----------
+    function openModal() {
+        const overlay = document.getElementById('modalOverlay');
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => {
+            document.getElementById('memberSelect').focus();
+            evaluateRules();
+        }, 150);
+    }
+    function closeModal() {
+        const overlay = document.getElementById('modalOverlay');
+        overlay.classList.remove('open');
+        document.body.style.overflow = '';
+        setTimeout(() => {
+            const f = document.getElementById('issueForm');
+            if (f) f.reset();
+            document.getElementById('qtyInput').value = 1;
+            document.getElementById('customDateRow').style.display = 'none';
+            evaluateRules();
+        }, 250);
+    }
+    function closeModalOutside(e) { if (e.target.id === 'modalOverlay') closeModal(); }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    // ---------- QUANTITY STEPPER ----------
+    function getMaxQty() {
+        const mOpt = document.getElementById('memberSelect').selectedOptions[0];
+        const bOpt = document.getElementById('bookSelect').selectedOptions[0];
+        if (!mOpt || !bOpt) return 1;
+        const active = parseInt(mOpt.dataset.active || '0', 10);
+        const copies = parseInt(bOpt.dataset.copies || '0', 10);
+        const slots = Math.max(MAX_BOOKS - active, 0);
+        return Math.max(Math.min(copies, slots), 1);
+    }
+
+    function changeQty(delta) {
+        const input = document.getElementById('qtyInput');
+        const max = getMaxQty();
+        let v = parseInt(input.value || '1', 10) + delta;
+        v = Math.max(1, Math.min(v, max));
+        input.value = v;
+        updateQtyControls();
+        evaluateRules();
+    }
+
+    function updateQtyControls() {
+        const input = document.getElementById('qtyInput');
+        const max = getMaxQty();
+        input.max = max;
+        if (parseInt(input.value || '1', 10) > max) input.value = max;
+
+        const btnMinus = document.querySelector('.qty-btn[onclick*="-1"]');
+        const btnPlus = document.querySelector('.qty-btn[onclick*="1"]');
+        if (btnMinus) btnMinus.disabled = parseInt(input.value, 10) <= 1;
+        if (btnPlus)  btnPlus.disabled = parseInt(input.value, 10) >= max;
+
+        document.getElementById('qtyHint').textContent = 'Max: ' + max;
+    }
+
+    // ---------- DATE PREVIEW ----------
+    function computeDueDate(borrowDateStr, days) {
+        const d = new Date(borrowDateStr + 'T00:00:00');
+        d.setDate(d.getDate() + days);
+        return d.toISOString().slice(0, 10);
+    }
+
+    function updateDuePreview() {
+        const daysSel = document.getElementById('daysSelect');
+        const customRow = document.getElementById('customDateRow');
+        const customInput = document.getElementById('customDueInput');
+        const previewDue = document.getElementById('previewDue');
+
+        if (daysSel.value === 'custom') {
+            customRow.style.display = 'flex';
+            if (!customInput.value) {
+                customInput.value = computeDueDate(TODAY, 7);
+            }
+            previewDue.textContent = customInput.value;
+        } else {
+            customRow.style.display = 'none';
+            const days = parseInt(daysSel.value, 10);
+            previewDue.textContent = computeDueDate(TODAY, days);
+        }
+    }
+
+    // ---------- RULE EVALUATION ----------
+    function evaluateRules() {
+        const mSel = document.getElementById('memberSelect');
+        const bSel = document.getElementById('bookSelect');
+        const list = document.getElementById('ruleList');
+        const btn = document.getElementById('issueBtn');
+        const mOpt = mSel.options[mSel.selectedIndex];
+        const bOpt = bSel.options[bSel.selectedIndex];
+        if (!mOpt || !bOpt) return;
+
+        const status = mOpt.dataset.status;
+        const verified = mOpt.dataset.verified === '1';
+        const active = parseInt(mOpt.dataset.active || '0', 10);
+        const overdue = parseInt(mOpt.dataset.overdue || '0', 10);
+        const fines = parseFloat(mOpt.dataset.fines || '0');
+        const copies = parseInt(bOpt.dataset.copies || '0', 10);
+        const qty = parseInt(document.getElementById('qtyInput').value || '1', 10);
+
+        const rules = [
+            { label: 'Account is active', ok: status === 'active' },
+            { label: 'ID verified', ok: verified },
+            { label: 'Book available (' + copies + ' copies)', ok: copies >= qty },
+            { label: 'Under limit (' + active + '/' + MAX_BOOKS + ')', ok: active + qty <= MAX_BOOKS, warn: active + qty === MAX_BOOKS },
+            { label: 'No overdue books', ok: overdue === 0 },
+            { label: 'No unpaid fines', ok: fines === 0 },
+        ];
+
+        list.innerHTML = '';
+        let allOk = true;
+
+        rules.forEach(r => {
+            const li = document.createElement('li');
+            let cls = 'rule-ok', icon = '✓';
+            if (!r.ok) { cls = 'rule-bad'; icon = '✕'; allOk = false; }
+            else if (r.warn) { cls = 'rule-warn'; icon = '!'; }
+            li.className = cls;
+            li.innerHTML = '<span class="rule-icon">' + icon + '</span><span>' + r.label + '</span>';
+            list.appendChild(li);
+        });
+
+        btn.disabled = !allOk;
+        btn.style.opacity = allOk ? '1' : '0.5';
+        btn.style.cursor = allOk ? 'pointer' : 'not-allowed';
+
+        updateQtyControls();
+        updateDuePreview();
+    }
+
+    // ---------- EVENT LISTENERS ----------
+    document.getElementById('memberSelect').addEventListener('change', evaluateRules);
+    document.getElementById('bookSelect').addEventListener('change', evaluateRules);
+    document.getElementById('daysSelect').addEventListener('change', evaluateRules);
+    document.getElementById('customDueInput').addEventListener('input', function () {
+        if (this.value) {
+            document.getElementById('previewDue').textContent = this.value;
+        }
+    });
+    document.getElementById('qtyInput').addEventListener('input', function () {
+        const max = getMaxQty();
+        let v = parseInt(this.value || '1', 10);
+        if (isNaN(v) || v < 1) v = 1;
+        if (v > max) v = max;
+        this.value = v;
+        updateQtyControls();
+        evaluateRules();
+    });
+
+    // ---------- INIT ON LOAD ----------
+    document.addEventListener('DOMContentLoaded', function () {
+        evaluateRules();
+    });
+</script>
+
+{% include 'partials/scripts.html' %}
+</body>
+</html>

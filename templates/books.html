@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Books · Smart Library</title>
+    {% include 'partials/head.html' %}
+</head>
+<body>
+<div class="app-shell">
+    {% include 'partials/sidebar.html' %}
+
+    <main class="main">
+        {% include 'partials/topbar.html' %}
+        {% include 'partials/flash.html' %}
+
+        <div class="hero-head reveal">
+            <div>
+                <div class="eyebrow">Catalog</div>
+                <h1 class="page-title">Manage Books</h1>
+                <p class="page-subtitle">Add, edit, or remove books from the catalog.</p>
+            </div>
+            <button type="button" class="btn-add" onclick="openModal()">
+                <span class="btn-add-icon">＋</span>
+                <span>Add New Book</span>
+            </button>
+        </div>
+
+        <div class="category-bar reveal">
+            <a href="{{ url_for('books') }}" class="cat-chip {% if current_category == 'All' %}active{% endif %}">✦ All</a>
+            {% for cat in categories %}
+            <a href="{{ url_for('books', category=cat) }}" class="cat-chip {% if current_category == cat %}active{% endif %}">{{ cat }}</a>
+            {% endfor %}
+        </div>
+
+        {% if books %}
+        <div class="book-grid">
+            {% for isbn, b in books.items() %}
+            <div class="book-card reveal" data-searchable="{{ b.title }} {{ b.author }} {{ b.category }}">
+
+                <a href="{{ url_for('book_detail', isbn=isbn) }}" class="book-link">
+                    <div class="book-poster">
+                        {% if b.poster %}
+                            <img src="{{ b.poster }}" alt="{{ b.title }}"
+                                 onerror="this.style.display='none'; this.parentElement.classList.add('no-image');">
+                        {% endif %}
+                        <span class="book-category">{{ b.category }}</span>
+                    </div>
+                    <div class="book-info">
+                        <h3>{{ b.title }}</h3>
+                        <p class="book-author">{{ b.author }}</p>
+                        <div class="book-footer">
+                            <span class="book-copies">{{ b.copies }} copies</span>
+                        </div>
+                    </div>
+                </a>
+
+                <button type="button" class="book-edit-btn"
+                        onclick='openEditModal({
+                            isbn: {{ isbn|tojson }},
+                            title: {{ b.title|tojson }},
+                            author: {{ b.author|tojson }},
+                            copies: {{ b.copies }},
+                            category: {{ b.category|tojson }},
+                            poster: {{ b.poster|tojson }}
+                        })'>
+                    ✎ Edit
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty reveal">
+            <div class="empty-icon">📚</div>
+            <h3>No books yet</h3>
+            <p>Click <strong>"Add New Book"</strong> to create your first entry.</p>
+        </div>
+        {% endif %}
+    </main>
+</div>
+
+<!-- ============ ADD BOOK MODAL ============ -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title">Add New Book</h2>
+                <p class="modal-sub">Type the title — the cover is fetched automatically</p>
+            </div>
+            <button type="button" class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <form method="POST" class="modal-form" id="addBookForm">
+            <input type="hidden" name="action" value="add">
+            <div class="modal-row">
+                <label>ISBN</label>
+                <input type="text" name="isbn" placeholder="e.g. 978-1-2345-6789-0" required>
+            </div>
+            <div class="modal-row">
+                <label>Title</label>
+                <input type="text" name="title" id="titleInput" placeholder="Book title" required autocomplete="off">
+            </div>
+            <div class="modal-row">
+                <label>Author</label>
+                <input type="text" name="author" id="authorInput" placeholder="Author name" required autocomplete="off">
+            </div>
+            <div class="modal-grid">
+                <div class="modal-row">
+                    <label>Copies</label>
+                    <input type="number" name="copies" value="1" min="1" max="999" required>
+                </div>
+                <div class="modal-row">
+                    <label>Category</label>
+                    <select name="category" required>
+                        {% for cat in categories %}
+                        <option value="{{ cat }}">{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-row">
+                <label>
+                    Poster
+                    <button type="button" class="fetch-btn" id="fetchBtn" onclick="fetchPoster()">🔄 Fetch Cover</button>
+                </label>
+                <div class="poster-row">
+                    <input type="url" name="poster" id="posterInput" placeholder="Auto-filled from title...">
+                    <div class="poster-preview" id="posterPreview">
+                        <span class="poster-preview-icon">📖</span>
+                    </div>
+                </div>
+                <small class="poster-status" id="posterStatus">Type a title and the cover will be fetched automatically.</small>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="modal-cancel" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="modal-save">Add Book</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============ EDIT BOOK MODAL ============ -->
+<div class="modal-overlay" id="editOverlay" onclick="closeEditOutside(event)">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title">Edit Book</h2>
+                <p class="modal-sub" id="editSubtitle">Update details</p>
+            </div>
+            <button type="button" class="modal-close" onclick="closeEditModal()">✕</button>
+        </div>
+        <form method="POST" class="modal-form" id="editBookForm">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="isbn" id="editIsbn">
+            <div class="modal-row">
+                <label>Title</label>
+                <input type="text" name="title" id="editTitle" required>
+            </div>
+            <div class="modal-row">
+                <label>Author</label>
+                <input type="text" name="author" id="editAuthor" required>
+            </div>
+            <div class="modal-grid">
+                <div class="modal-row">
+                    <label>Copies</label>
+                    <input type="number" name="copies" id="editCopies" min="0" max="999" required>
+                </div>
+                <div class="modal-row">
+                    <label>Category</label>
+                    <select name="category" id="editCategory" required>
+                        {% for cat in categories %}
+                        <option value="{{ cat }}">{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-row">
+                <label>Poster URL</label>
+                <div class="poster-row">
+                    <input type="url" name="poster" id="editPoster" placeholder="https://...">
+                    <div class="poster-preview" id="editPosterPreview">
+                        <span class="poster-preview-icon">📖</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="modal-cancel" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="modal-save">Save Changes</button>
+            </div>
+        </form>
+        <form method="POST" style="padding: 0 26px 22px;" onsubmit="return confirm('Delete this book permanently?');">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="isbn" id="deleteIsbn">
+            <button type="submit" class="primary btn-full btn-danger">Delete Book</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // ===== ADD MODAL =====
+    function openModal() {
+        document.getElementById('modalOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => document.querySelector('#addBookForm input[name="isbn"]').focus(), 150);
+    }
+    function closeModal() {
+        document.getElementById('modalOverlay').classList.remove('open');
+        document.body.style.overflow = '';
+        setTimeout(() => {
+            document.getElementById('addBookForm').reset();
+            updatePosterPreview('');
+            document.getElementById('posterStatus').textContent = 'Type a title and the cover will be fetched automatically.';
+        }, 250);
+    }
+    function closeModalOutside(e) { if (e.target.id === 'modalOverlay') closeModal(); }
+
+    // ===== EDIT MODAL =====
+    function openEditModal(data) {
+        document.getElementById('editIsbn').value = data.isbn;
+        document.getElementById('deleteIsbn').value = data.isbn;
+        document.getElementById('editTitle').value = data.title;
+        document.getElementById('editAuthor').value = data.author;
+        document.getElementById('editCopies').value = data.copies;
+        document.getElementById('editCategory').value = data.category;
+        document.getElementById('editPoster').value = data.poster || '';
+        document.getElementById('editSubtitle').textContent = data.title;
+        updateEditPreview(data.poster || '');
+        document.getElementById('editOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeEditModal() {
+        document.getElementById('editOverlay').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    function closeEditOutside(e) { if (e.target.id === 'editOverlay') closeEditModal(); }
+    function updateEditPreview(url) {
+        const box = document.getElementById('editPosterPreview');
+        if (!url) {
+            box.innerHTML = '<span class="poster-preview-icon">📖</span>';
+            box.classList.remove('has-image');
+            return;
+        }
+        box.innerHTML = `<img src="${url}" onerror="this.parentElement.innerHTML='<span class=poster-preview-icon>📖</span>';this.parentElement.classList.remove('has-image');">`;
+        box.classList.add('has-image');
+    }
+    document.getElementById('editPoster').addEventListener('input', function () {
+        updateEditPreview(this.value.trim());
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { closeModal(); closeEditModal(); }
+    });
+
+    // ===== AUTO-FETCH POSTER =====
+    const titleInput   = document.getElementById('titleInput');
+    const authorInput  = document.getElementById('authorInput');
+    const posterInput  = document.getElementById('posterInput');
+    const posterStatus = document.getElementById('posterStatus');
+    const posterPreview = document.getElementById('posterPreview');
+    const fetchBtn     = document.getElementById('fetchBtn');
+
+    let lastFetchedTitle = '';
+    let debounceTimer = null;
+
+    function updatePosterPreview(url) {
+        if (!url) {
+            posterPreview.innerHTML = '<span class="poster-preview-icon">📖</span>';
+            posterPreview.classList.remove('has-image');
+            return;
+        }
+        posterPreview.innerHTML = `<img src="${url}" onerror="this.parentElement.innerHTML='<span class=poster-preview-icon>📖</span>';this.parentElement.classList.remove('has-image');">`;
+        posterPreview.classList.add('has-image');
+    }
+
+    async function fetchPoster() {
+        const title = titleInput.value.trim();
+        const author = authorInput.value.trim();
+        const isbn = document.querySelector('#addBookForm input[name="isbn"]').value.trim();
+
+        if (!title) {
+            posterStatus.textContent = '⚠️ Enter a title first.';
+            posterStatus.className = 'poster-status poster-status-warn';
+            return;
+        }
+
+        posterStatus.textContent = '🔎 Searching Open Library...';
+        posterStatus.className = 'poster-status poster-status-loading';
+        fetchBtn.disabled = true;
+
+        try {
+            const url = `/api/fetch-poster?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&isbn=${encodeURIComponent(isbn)}`;
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (data.poster) {
+                posterInput.value = data.poster;
+                updatePosterPreview(data.poster);
+                const via = data.source === 'isbn' ? 'ISBN' : 'title search';
+                posterStatus.textContent = `✅ Found cover via ${via}${data.author ? ' · ' + data.author : ''}`;
+                posterStatus.className = 'poster-status poster-status-ok';
+                lastFetchedTitle = title;
+            } else {
+                posterInput.value = '';
+                updatePosterPreview('');
+                posterStatus.textContent = '⚠️ No cover found. Enter a URL manually.';
+                posterStatus.className = 'poster-status poster-status-warn';
+            }
+        } catch (err) {
+            posterStatus.textContent = '⚠️ Network error. Try again or paste a URL.';
+            posterStatus.className = 'poster-status poster-status-warn';
+        } finally {
+            fetchBtn.disabled = false;
+        }
+    }
+
+    function scheduleAutoFetch() {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            const title = titleInput.value.trim();
+            if (title && title !== lastFetchedTitle && title.length >= 3) {
+                fetchPoster();
+            }
+        }, 800);
+    }
+
+    titleInput.addEventListener('input', scheduleAutoFetch);
+    authorInput.addEventListener('input', scheduleAutoFetch);
+    fetchBtn.addEventListener('click', fetchPoster);
+    posterInput.addEventListener('input', function () {
+        updatePosterPreview(this.value.trim());
+    });
+</script>
+
+{% include 'partials/scripts.html' %}
+</body>
+</html>

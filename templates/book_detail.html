@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>{{ book.title }} · Book Details</title>
+    {% include 'partials/head.html' %}
+</head>
+<body>
+<div class="app-shell">
+    {% include 'partials/sidebar.html' %}
+
+    <main class="main">
+        {% include 'partials/topbar.html' %}
+        {% include 'partials/flash.html' %}
+
+        <a href="{{ url_for('books') }}" class="back-link">← Back to Books</a>
+
+        <!-- BOOK HERO -->
+        <div class="book-hero reveal">
+            <div class="book-hero-poster">
+                {% if book.poster %}
+                    <img src="{{ book.poster }}" alt="{{ book.title }}"
+                         onerror="this.style.display='none'; this.parentElement.classList.add('no-image');">
+                {% endif %}
+            </div>
+
+            <div class="book-hero-info">
+                <div class="eyebrow">{{ book.category }}</div>
+                <h1 class="book-hero-title">{{ book.title }}</h1>
+                <p class="book-hero-author">by {{ book.author }}</p>
+
+                <div class="book-hero-meta">
+                    <span class="profile-chip">📖 {{ book.copies }} copies in stock</span>
+                    <span class="profile-chip">🔖 ISBN {{ isbn }}</span>
+                    <span class="profile-chip">🔄 {{ active_count }} on loan</span>
+                    <span class="profile-chip">📚 {{ total_borrows }} total borrows</span>
+                </div>
+
+                <div class="book-hero-actions">
+                    <a href="{{ url_for('borrow') }}" class="btn-add">
+                        <span class="btn-add-icon">＋</span>
+                        <span>Issue a Copy</span>
+                    </a>
+                    <button type="button" class="modal-cancel"
+                            onclick="openEditModal()">✎ Edit Book</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DEFINITIONS / DESCRIPTION -->
+        <section class="dash-card reveal" style="margin-bottom: 22px;">
+            <div class="dash-card-header">
+                <div>
+                    <h2 class="dash-card-title">📘 About this book</h2>
+                    <p class="dash-card-sub">Description auto-fetched from Open Library</p>
+                </div>
+            </div>
+            <div id="bookDescription" class="book-description">
+                <div class="desc-loading">
+                    <span class="desc-spinner">⏳</span>
+                    Looking up the description…
+                </div>
+            </div>
+        </section>
+
+        <!-- STATS -->
+        <div class="stats reveal">
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div>
+                    <div class="stat-value">{{ book.copies }}</div>
+                    <div class="stat-label">Copies Available</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📤</div>
+                <div>
+                    <div class="stat-value">{{ active_count }}</div>
+                    <div class="stat-label">Currently On Loan</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📚</div>
+                <div>
+                    <div class="stat-value">{{ total_borrows }}</div>
+                    <div class="stat-label">Total Borrows</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🏷️</div>
+                <div>
+                    <div class="stat-value" style="font-size: 14px;">{{ book.category }}</div>
+                    <div class="stat-label">Category</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACTIVE BORROWS -->
+        <h2 class="section-title reveal">Currently Borrowed</h2>
+        {% if active %}
+        <div class="table-card reveal">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Borrowed</th>
+                        <th>Due</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in active %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('member_detail', member_id=r.member_id) }}"
+                               style="color: var(--coral); text-decoration: none; font-weight: 600;">
+                                {{ r.member_name }}
+                            </a>
+                        </td>
+                        <td>{{ r.borrow_date }}</td>
+                        <td>{{ r.due_date }}</td>
+                        <td>
+                            {% if r.overdue %}
+                                <span class="badge absent">Overdue</span>
+                            {% elif r.due_date == today %}
+                                <span class="badge late">Due Today</span>
+                            {% else %}
+                                <span class="badge excused">Borrowed</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty reveal">
+            <div class="empty-icon">📭</div>
+            <h3>All copies are on the shelf</h3>
+            <p>No one has this book checked out right now.</p>
+        </div>
+        {% endif %}
+
+        <!-- BORROW HISTORY -->
+        {% if history %}
+        <h2 class="section-title reveal">Borrow History</h2>
+        <div class="table-card reveal">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Borrowed</th>
+                        <th>Returned</th>
+                        <th>Condition</th>
+                        <th>Fine</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in history %}
+                    <tr>
+                        <td>{{ r.member_name }}</td>
+                        <td>{{ r.borrow_date }}</td>
+                        <td>{{ r.return_date or '—' }}</td>
+                        <td>
+                            {% if r.condition == 'lost' %}
+                                <span class="badge absent">Lost</span>
+                            {% elif r.condition == 'damaged' %}
+                                <span class="badge late">Damaged</span>
+                            {% else %}
+                                <span class="badge present">Good</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if r.fine > 0 %}
+                                <span class="badge absent">P{{ '%.2f'|format(r.fine) }}</span>
+                            {% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </main>
+</div>
+
+<!-- EDIT MODAL (reused from books page) -->
+<div class="modal-overlay" id="editOverlay" onclick="closeEditOutside(event)">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title">Edit Book</h2>
+                <p class="modal-sub">{{ book.title }}</p>
+            </div>
+            <button type="button" class="modal-close" onclick="closeEditModal()">✕</button>
+        </div>
+        <form method="POST" action="{{ url_for('books') }}" class="modal-form">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="isbn" value="{{ isbn }}">
+
+            <div class="modal-row">
+                <label>Title</label>
+                <input type="text" name="title" value="{{ book.title }}" required>
+            </div>
+            <div class="modal-row">
+                <label>Author</label>
+                <input type="text" name="author" value="{{ book.author }}" required>
+            </div>
+            <div class="modal-grid">
+                <div class="modal-row">
+                    <label>Copies</label>
+                    <input type="number" name="copies" value="{{ book.copies }}" min="0" max="999" required>
+                </div>
+                <div class="modal-row">
+                    <label>Category</label>
+                    <select name="category" required>
+                        {% for cat in categories %}
+                        <option value="{{ cat }}" {% if cat == book.category %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-row">
+                <label>Poster URL</label>
+                <input type="url" name="poster" value="{{ book.poster }}" placeholder="https://...">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="modal-cancel" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="modal-save">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.book-hero {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 32px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+}
+.book-hero::before {
+    content: "";
+    position: absolute;
+    top: -100px; right: -100px;
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, rgba(232, 115, 90, 0.1), transparent 70%);
+    border-radius: 50%;
+}
+.book-hero > * { position: relative; z-index: 1; }
+
+.book-hero-poster {
+    width: 200px;
+    aspect-ratio: 2 / 3;
+    border-radius: 12px;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--ink), #44403C);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 16px 34px rgba(28, 25, 23, 0.22);
+    position: relative;
+}
+.book-hero-poster::before {
+    content: "📖";
+    position: absolute;
+    font-size: 42px;
+    opacity: 0.4;
+}
+.book-hero-poster img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+}
+
+.book-hero-info { display: flex; flex-direction: column; gap: 10px; }
+
+.book-hero-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.1;
+    letter-spacing: -0.4px;
+    margin-top: 4px;
+}
+
+.book-hero-author {
+    font-size: 15px;
+    color: var(--ink-soft);
+    font-style: italic;
+    margin-bottom: 6px;
+}
+
+.book-hero-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.book-hero-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* Description */
+.book-description {
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+}
+.book-description p { margin-bottom: 10px; }
+.book-description strong { color: var(--ink); font-weight: 600; }
+
+.desc-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--ink-mute);
+    font-size: 13px;
+    padding: 12px 0;
+}
+.desc-spinner {
+    display: inline-block;
+    animation: spin 1.4s linear infinite;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.desc-empty {
+    padding: 16px;
+    background: var(--bg);
+    border-radius: 10px;
+    border-left: 3px solid var(--coral);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    font-style: italic;
+}
+
+@media (max-width: 700px) {
+    .book-hero {
+        grid-template-columns: 1fr;
+        text-align: center;
+        padding: 22px 20px;
+    }
+    .book-hero-poster { margin: 0 auto; width: 160px; }
+    .book-hero-title { font-size: 24px; }
+    .book-hero-meta { justify-content: center; }
+    .book-hero-actions { justify-content: center; }
+}
+</style>
+
+<script>
+    // ---------- EDIT MODAL ----------
+    function openEditModal() {
+        document.getElementById('editOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeEditModal() {
+        document.getElementById('editOverlay').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    function closeEditOutside(e) {
+        if (e.target.id === 'editOverlay') closeEditModal();
+    }
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeEditModal();
+    });
+
+    // ---------- FETCH DESCRIPTION ----------
+    (async function loadDescription() {
+        const box = document.getElementById('bookDescription');
+        try {
+            const url = `/api/fetch-description?title=${encodeURIComponent({{ book.title|tojson }})}&author=${encodeURIComponent({{ book.author|tojson }})}&isbn=${encodeURIComponent({{ isbn|tojson }})}`;
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (data.description) {
+                // Clean up and format
+                let text = data.description;
+                // Remove markdown-ish leading/trailing
+                text = text.replace(/^[-\s]+/, '').replace(/[-\s]+$/, '');
+                // Split into paragraphs
+                const paras = text.split(/\n\n+/);
+                box.innerHTML = paras
+                    .map(p => `<p>${escapeHtml(p.replace(/\n/g, ' '))}</p>`)
+                    .join('');
+            } else {
+                box.innerHTML = `
+                    <div class="desc-empty">
+                        No description available from Open Library for this title.
+                        You can add your own by editing the book.
+                    </div>`;
+            }
+        } catch (err) {
+            box.innerHTML = `
+                <div class="desc-empty">
+                    Could not reach Open Library. Check your connection and try again.
+                </div>`;
+        }
+    })();
+
+    function escapeHtml(s) {
+        return s.replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;',
+            '"': '&quot;', "'": '&#39;'
+        })[c]);
+    }
+</script>
+
+{% include 'partials/scripts.html' %}
+</body>
+</html>

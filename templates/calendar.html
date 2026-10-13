@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Calendar · Lib-Management</title>
+    {% include 'partials/head.html' %}
+</head>
+<body>
+<div class="app-shell">
+    {% include 'partials/sidebar.html' %}
+
+    <main class="main">
+        {% include 'partials/topbar.html' %}
+        {% include 'partials/flash.html' %}
+
+        <div class="hero-head reveal">
+            <div>
+                <div class="eyebrow">Schedule</div>
+                <h1 class="page-title">{{ month_name }} {{ year }}</h1>
+                <p class="page-subtitle">Borrow and return dates this month.</p>
+            </div>
+            <div class="cal-nav">
+                <a href="{{ url_for('calendar_view', year=prev_year, month=prev_month) }}" class="cal-btn">← Prev</a>
+                <a href="{{ url_for('calendar_view') }}" class="cal-btn">Today</a>
+                <a href="{{ url_for('calendar_view', year=next_year, month=next_month) }}" class="cal-btn">Next →</a>
+            </div>
+        </div>
+
+        <div class="legend reveal">
+            <span class="legend-item"><span class="dot dot-borrowed"></span> Borrowed</span>
+            <span class="legend-item"><span class="dot dot-due"></span> Due</span>
+            <span class="legend-item"><span class="dot dot-overdue"></span> Overdue</span>
+            <span class="legend-item"><span class="dot dot-returned"></span> Returned</span>
+        </div>
+
+        <div class="dash-card reveal">
+            <div class="cal-grid-full">
+                {% for day_name in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
+                <div class="cal-head-full">{{ day_name }}</div>
+                {% endfor %}
+
+                {% for week in weeks %}
+                    {% for day in week %}
+                        {% if day == 0 %}
+                            <div class="cal-cell-full cal-empty"></div>
+                        {% else %}
+                            {% set date_str = '%04d-%02d-%02d'|format(year, month, day) %}
+                            <div class="cal-cell-full {% if date_str == today %}cal-today{% endif %}">
+                                <div class="cal-day-full">{{ day }}</div>
+                                <div class="cal-events-full">
+                                    {% for e in events.get(date_str, [])[:3] %}
+                                        <div class="cal-event-full cal-{{ e.type }}"
+                                             title="{{ e.title }} — {{ e.member }}">
+                                            <span class="cal-event-dot"></span>
+                                            <span class="cal-event-text-full">{{ e.title }}</span>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+    </main>
+</div>
+
+<style>
+/* Compact month grid */
+.cal-grid-full {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 5px;
+    width: 100%;
+}
+
+.cal-head-full {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding: 4px 0;
+}
+
+.cal-cell-full {
+    background: var(--bg);
+    border-radius: 7px;
+    padding: 5px 6px;
+    min-height: 66px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border: 1.5px solid transparent;
+    transition: 0.2s;
+    overflow: hidden;
+}
+.cal-cell-full:hover { border-color: var(--coral-soft); }
+.cal-cell-full.cal-empty { background: transparent; }
+.cal-cell-full.cal-today {
+    border-color: var(--coral);
+    background: var(--coral-soft);
+}
+
+.cal-day-full {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1;
+    flex-shrink: 0;
+}
+.cal-today .cal-day-full { color: var(--coral); }
+
+.cal-events-full {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+}
+
+.cal-event-full {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 8.5px;
+    font-weight: 500;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--ink);
+}
+
+.cal-event-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.cal-borrowed .cal-event-dot { background: #A8C5FF; }
+.cal-borrowed { background: #DBEAFE; }
+
+.cal-due .cal-event-dot { background: #F5C56B; }
+.cal-due { background: #FEF3C7; }
+
+.cal-returned .cal-event-dot { background: #6BD68F; }
+.cal-returned { background: #DCFCE7; }
+
+.cal-overdue .cal-event-dot { background: #EF6B6B; }
+.cal-overdue { background: #FEE2E2; }
+
+.cal-event-text-full {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .cal-cell-full { min-height: 56px; padding: 4px; }
+    .cal-day-full { font-size: 10px; }
+    .cal-event-full { font-size: 7.5px; padding: 1px 3px; }
+}
+
+@media (max-width: 600px) {
+    .cal-grid-full { gap: 3px; }
+    .cal-cell-full { min-height: 44px; padding: 3px; }
+    .cal-day-full { font-size: 9px; }
+    .cal-event-text-full { display: none; }
+}
+</style>
+
+{% include 'partials/scripts.html' %}
+</body>
+</html>
