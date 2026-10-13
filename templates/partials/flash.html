@@ -1,0 +1,14 @@
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="flash-stack">
+        {% for category, msg in messages %}
+            <div class="flash flash-{{ category or 'info' }}">
+                <span class="flash-icon">
+                    {% if category == 'success' %}✅{% elif category == 'error' %}⚠️{% else %}ℹ️{% endif %}
+                </span>
+                <span>{{ msg }}</span>
+            </div>
+        {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}

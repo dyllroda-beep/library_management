@@ -1,0 +1,81 @@
+<div class="topbar">
+    <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="globalSearch" placeholder="Search anything..." autocomplete="off">
+    </div>
+
+    <div class="user-menu">
+        <div class="bell-wrap">
+            <button type="button" class="bell" id="bellBtn" aria-label="Notifications">
+                🔔
+                {% if notif_count > 0 %}<span class="bell-badge">{{ notif_count }}</span>{% endif %}
+            </button>
+            <div class="notif-panel" id="notifPanel">
+                <div class="notif-head">
+                    <div>
+                        <h3>Notifications</h3>
+                        <p class="notif-sub">{{ notif_count }} recent</p>
+                    </div>
+                    <button type="button" class="notif-clear" id="notifClear">Mark all read</button>
+                </div>
+                {% if notifications %}
+                <div class="notif-list">
+                    {% for n in notifications %}
+                    <div class="notif-item notif-{{ n.type }}">
+                        <div class="notif-icon">{{ n.icon }}</div>
+                        <div class="notif-info">
+                            <div class="notif-title">{{ n.title }}</div>
+                            <div class="notif-meta">{{ n.meta }}</div>
+                        </div>
+                        <span class="notif-dot"></span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="notif-empty">
+                    <div>🎉</div>
+                    <p>All caught up!</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="admin-wrap">
+            <button type="button" class="admin-btn" id="adminBtn" aria-label="Account menu">
+                <div class="avatar">{{ librarian[0]|upper }}</div>
+                <div class="admin-meta">
+                    <span class="user-name">{{ librarian|capitalize }}</span>
+                    <span class="user-role">Librarian</span>
+                </div>
+                <span class="admin-caret">▾</span>
+            </button>
+            <div class="admin-panel" id="adminPanel">
+                <div class="admin-head">
+                    <div class="avatar avatar-lg">{{ librarian[0]|upper }}</div>
+                    <div>
+                        <div class="admin-head-name">{{ librarian|capitalize }}</div>
+                        <div class="admin-head-email">admin@smartlibrary.local</div>
+                    </div>
+                </div>
+                <div class="admin-menu">
+                    <a href="{{ url_for('dashboard') }}" class="admin-item">
+                        <span class="admin-item-icon">🏠</span>
+                        <span class="admin-item-text">Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('books') }}" class="admin-item">
+                        <span class="admin-item-icon">📖</span>
+                        <span class="admin-item-text">Manage Books</span>
+                    </a>
+                    <a href="{{ url_for('members') }}" class="admin-item">
+                        <span class="admin-item-icon">👥</span>
+                        <span class="admin-item-text">Manage Members</span>
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="admin-item admin-item-danger">
+                        <span class="admin-item-icon">🚪</span>
+                        <span class="admin-item-text">Sign Out</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

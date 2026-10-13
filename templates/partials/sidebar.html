@@ -1,0 +1,72 @@
+<aside class="sidebar">
+    <div class="side-logo">
+        <span class="logo-icon">📚</span>
+        <span class="logo-text">Lib-Management</span>
+    </div>
+
+    <nav class="side-nav">
+        <div class="side-group-label">Overview</div>
+        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+            <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+        </a>
+
+        <div class="side-group-label">Catalog</div>
+        <a href="{{ url_for('books') }}" class="{% if request.endpoint in ['books', 'book_detail'] %}active{% endif %}">
+            <span class="nav-icon">📖</span><span class="nav-label">Books</span>
+        </a>
+        <a href="{{ url_for('members') }}" class="{% if request.endpoint in ['members', 'member_detail'] %}active{% endif %}">
+            <span class="nav-icon">👥</span><span class="nav-label">Members</span>
+            {% if total_members %}<span class="nav-count">{{ total_members }}</span>{% endif %}
+        </a>
+
+        <div class="side-group-label">Circulation</div>
+        <a href="{{ url_for('borrow') }}" class="{% if request.endpoint == 'borrow' %}active{% endif %}">
+            <span class="nav-icon">🔄</span><span class="nav-label">Borrow / Return</span>
+        </a>
+        <a href="{{ url_for('borrowers') }}" class="{% if request.endpoint == 'borrowers' %}active{% endif %}">
+            <span class="nav-icon">📋</span><span class="nav-label">Borrowers</span>
+            {% if active_borrows %}<span class="nav-count">{{ active_borrows }}</span>{% endif %}
+        </a>
+        <a href="{{ url_for('calendar_view') }}" class="{% if request.endpoint == 'calendar_view' %}active{% endif %}">
+            <span class="nav-icon">📅</span><span class="nav-label">Calendar</span>
+        </a>
+    </nav>
+
+    <div class="side-bottom">
+        <!-- Notification card -->
+        <div class="side-notifs" id="sideNotifs" role="button" tabindex="0">
+            <div class="side-notifs-head">
+                <span class="side-notifs-title">
+                    <span class="side-notifs-dot {% if notif_count == 0 %}read{% endif %}"></span>
+                    Notifications
+                </span>
+                <span class="side-notifs-badge">{{ notif_count }}</span>
+            </div>
+
+            {% if notifications %}
+            <div class="side-notifs-list">
+                {% for n in notifications[:3] %}
+                <div class="side-notif-item notif-{{ n.type }}">
+                    <span class="side-notif-icon">{{ n.icon }}</span>
+                    <div class="side-notif-info">
+                        <div class="side-notif-title">{{ n.title|truncate(32, True) }}</div>
+                        <div class="side-notif-meta">{{ n.meta|truncate(32, True) }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if notif_count > 3 %}
+            <div class="side-notifs-more">+{{ notif_count - 3 }} more…</div>
+            {% endif %}
+            {% else %}
+            <div class="side-notifs-empty">
+                <span>🎉</span> All caught up!
+            </div>
+            {% endif %}
+        </div>
+
+        <a href="{{ url_for('logout') }}" class="side-logout">
+            <span class="nav-icon">🚪</span><span class="nav-label">Logout</span>
+        </a>
+    </div>
+</aside>

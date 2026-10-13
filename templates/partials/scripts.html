@@ -1,0 +1,72 @@
+<script>
+(function () {
+    const bellBtn = document.getElementById('bellBtn');
+    const notifPanel = document.getElementById('notifPanel');
+    const adminBtn = document.getElementById('adminBtn');
+    const adminPanel = document.getElementById('adminPanel');
+    const notifClear = document.getElementById('notifClear');
+
+    function closeAll(except) {
+        if (notifPanel && except !== 'notif') notifPanel.classList.remove('open');
+        if (adminPanel && except !== 'admin') adminPanel.classList.remove('open');
+        document.querySelectorAll('.bell.active, .admin-btn.active').forEach(el => el.classList.remove('active'));
+    }
+
+    if (bellBtn && notifPanel) {
+        bellBtn.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            const willOpen = !notifPanel.classList.contains('open');
+            closeAll();
+            if (willOpen) {
+                notifPanel.classList.add('open');
+                bellBtn.classList.add('active');
+            }
+        });
+    }
+
+    if (adminBtn && adminPanel) {
+        adminBtn.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            const willOpen = !adminPanel.classList.contains('open');
+            closeAll();
+            if (willOpen) {
+                adminPanel.classList.add('open');
+                adminBtn.classList.add('active');
+            }
+        });
+    }
+
+    if (notifClear) {
+        notifClear.addEventListener('click', function (e) {
+            e.stopPropagation();
+            document.querySelectorAll('.notif-item').forEach(item => item.classList.add('notif-read'));
+            const badge = document.querySelector('.bell-badge');
+            if (badge) badge.style.display = 'none';
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.bell-wrap') && !e.target.closest('.admin-wrap')) closeAll();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeAll();
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            const s = document.getElementById('globalSearch');
+            if (s) s.focus();
+        }
+    });
+
+    const search = document.getElementById('globalSearch');
+    if (search) {
+        search.addEventListener('input', function () {
+            const q = this.value.toLowerCase().trim();
+            document.querySelectorAll('[data-searchable]').forEach(el => {
+                const hay = (el.dataset.searchable || '').toLowerCase();
+                el.style.display = (!q || hay.includes(q)) ? '' : 'none';
+            });
+        });
+    }
+})();
+</script>
